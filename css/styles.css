@@ -337,6 +337,24 @@ h2.xlong { font-size: clamp(30px, 4.2vw, 56px); -webkit-text-stroke-width: 9px; 
   pointer-events: none;
 }
 
+/* Botón de sonido del video de presentación */
+.intro-sound {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 5;
+  min-height: 46px;
+  padding: 10px 18px;
+  font-size: 15px;
+  letter-spacing: .5px;
+  color: #fff;
+  background: linear-gradient(180deg, #c3a6ff 0%, #8d62e6 100%);
+  box-shadow: 0 5px 0 #6f45c8, 0 10px 18px rgba(110, 70, 200, .35);
+}
+.intro-sound .ico { width: 22px; height: 22px; }
+.intro-sound[aria-pressed="true"]  .ico-off { display: none; }
+.intro-sound[aria-pressed="false"] .ico-on  { display: none; }
+
 /* En el juego el escenario se ensancha para que los videos se vean grandes */
 .layout.is-game { grid-template-columns: 1.8fr 1fr; }
 

@@ -3,7 +3,10 @@
  *
  * LECCIÓN → un VIDEO por acción (en bucle, silenciado) y un texto simple.
  * Entre acciones hay fundido cruzado: el video nuevo aparece encima del anterior,
- * nunca se ve la pantalla vacía. La voz dice primero la acción y luego su texto.
+ * nunca se ve la pantalla vacía. La voz lee la frase de la acción.
+ *
+ * INICIO → video de presentación (assets/video/presentacion.mp4) en bucle, silenciado
+ * al abrir; un botón sobre el escenario activa su sonido. Se desvanece suave al empezar.
  *
  * JUEGO → todos los videos disponibles en recuadros, cada uno en bucle y de forma
  * independiente; se toca el video de la acción preguntada.
@@ -15,7 +18,7 @@
  *
  * ⚠ Los textos de abajo son un BORRADOR: cámbialos en el arreglo ACTIONS.
  *
- * @version 1.1.0
+ * @version 1.2.0
  */
 
 'use strict';
@@ -33,7 +36,7 @@ const TRANSITION_MS = 1000;
 const ACTIONS = [
   {
     id: 'caminar', label: 'CAMINAR', icon: '🚶', color: '#12a8c4',
-    phrase:   'Camino moviendo un pie y luego el otro.',
+    phrase:   'Caminar, es avanzar paso a paso pisando despacito, camino de la mano con mamá.',
     question: '¿Quién está caminando?',
     answer:   'Él está caminando.',
     video: VID + 'caminando.mp4',            // lección (4:3)
@@ -41,7 +44,7 @@ const ACTIONS = [
   },
   {
     id: 'saltar', label: 'SALTAR', icon: '🤸', color: '#f29a00',
-    phrase:   'Salto muy alto con mis dos pies.',
+    phrase:   'Saltar, es impulsarse despegando los pies del suelo, salto muy alto para tocar el techo.',
     question: '¿Quién está saltando?',
     answer:   'Él está saltando.',
     video: VID + 'saltando.mp4',            // lección (4:3)
@@ -49,7 +52,7 @@ const ACTIONS = [
   },
   {
     id: 'girar', label: 'GIRAR', icon: '🔄', color: '#e8588d',
-    phrase:   'Giro y doy una vuelta completa.',
+    phrase:   'Girar, es dar vueltas en el mismo lugar, giro rápido como un tornillo.',
     question: '¿Quién está girando?',
     answer:   'Él está girando.',
     video: VID + 'girando.mp4',            // lección (4:3)
@@ -57,7 +60,7 @@ const ACTIONS = [
   },
   {
     id: 'bostezar', label: 'BOSTEZAR', icon: '🥱', color: '#7b3fd4',
-    phrase:   'Bostezo cuando tengo sueño.',
+    phrase:   'Bostezar, es tomar un aire abriendo grande la boca, bostezo antes de ir a dormir.',
     question: '¿Quién está bostezando?',
     answer:   'Él está bostezando.',
     video: VID + 'bostezando.mp4',            // lección (4:3)
@@ -65,13 +68,17 @@ const ACTIONS = [
   },
   {
     id: 'subir', label: 'SUBIR', icon: '🪜', color: '#2f80ed',
-    phrase:   'Subo por las escaleras, un escalón a la vez.',
+    phrase:   'Subir, es ir de abajo hacia arriba, subo por la escalera a mi habitación.',
     question: '¿Quién está subiendo?',
     answer:   'Él está subiendo.',
     video: VID + 'subiendo.mp4',            // lección (4:3)
     card:  VID + 'subiendo_card.mp4',       // juego (cuadrado, liviano)
   },
 ];
+
+/** Video de presentación de la pantalla de inicio. */
+const INTRO_VIDEO = VID + 'presentacion.mp4';
+let INTRO_OK = false;
 
 /** Acciones con video disponible (se llena al iniciar). */
 let ACTIVE = [];
@@ -192,6 +199,7 @@ class SceneController {
     this._stage   = stageEl;
     this._layout  = stageEl.parentElement;   // .layout (se ensancha en el juego)
     this._current = null;
+    this._introSound = false;     // el sonido del video de inicio se activa con el botón
   }
 
   _makeSlide(src) {
@@ -199,7 +207,7 @@ class SceneController {
     slide.className = 'slide';
     const v = document.createElement('video');
     v.className = 'slide-video';
-    v.muted = true;
+    v.muted = !(src === INTRO_VIDEO && this._introSound);
     v.loop = true;
     v.playsInline = true;
     v.preload = 'auto';
@@ -229,6 +237,10 @@ class SceneController {
     }
     this._current = src;
 
+    // El sonido del video anterior baja poco a poco mientras aparece el nuevo
+    const prev = this._lastVideo();
+    if (prev && !prev.muted) this._fadeOutAudio(prev, TRANSITION_MS);
+
     const slide = this._makeSlide(src);
     const v = slide.firstChild;
     this._slides.appendChild(slide);
@@ -257,6 +269,28 @@ class SceneController {
     if (instant) cleanup(); else setTimeout(cleanup, TRANSITION_MS + 80);
   }
 
+  _fadeOutAudio(video, ms) {
+    const steps = 20, start = video.volume;
+    let n = 0;
+    const id = setInterval(() => {
+      n++;
+      video.volume = Math.max(0, start * (1 - n / steps));
+      if (n >= steps) { clearInterval(id); video.muted = true; }
+    }, ms / steps);
+  }
+
+  /** Activa/desactiva el sonido del video de inicio. Devuelve true si queda con sonido. */
+  toggleIntroSound() {
+    this._introSound = !this._introSound;
+    const v = this._current === INTRO_VIDEO ? this._lastVideo() : null;
+    if (v) {
+      v.volume = 1;
+      v.muted = !this._introSound;
+      if (this._introSound && v.paused) v.play().catch(() => {});
+    }
+    return this._introSound;
+  }
+
   /** Reinicia el video actual desde el principio (al repetir). */
   replay() {
     const v = this._lastVideo();
@@ -265,8 +299,9 @@ class SceneController {
     v.play().catch(() => {});
   }
 
-  /** Pantalla de inicio: el primer video en bucle de fondo. */
+  /** Pantalla de inicio: el video de presentación en bucle (o la 1.ª acción si falta). */
   showHome(instant = false) {
+    if (INTRO_OK) return this.show(INTRO_VIDEO, instant);
     return ACTIVE.length ? this.show(ACTIVE[0].video, instant) : Promise.resolve();
   }
 
@@ -297,6 +332,8 @@ class StateManager {
     this._mode = name;
     ['welcome', 'lesson', 'game', 'finish'].forEach((id) => { $(id).hidden = id !== name; });
     $('controls').hidden = name === 'welcome' || name === 'finish';
+    const sb = $('introSound');
+    if (sb) sb.hidden = name !== 'welcome';
     $('prev').hidden     = name === 'game';
     $('next').hidden     = name === 'game';
   }
@@ -346,9 +383,8 @@ class LessonMode {
     $('lessonIcon').textContent = a.icon;
     $('lessonIcon').hidden      = false;
 
-    // "Caminar... Camino moviendo un pie..."
-    const name = a.label.charAt(0) + a.label.slice(1).toLowerCase();
-    this._voice.speak(`${name}... ${a.phrase}`);
+    // La frase ya empieza con la acción: "Caminar, es avanzar paso a paso..."
+    this._voice.speak(a.phrase);
     await this._scene.show(a.video);
     if (restart) this._scene.replay();
   }
@@ -494,8 +530,10 @@ class App {
 
   /** Detecta qué videos existen y prepara la pantalla de inicio. */
   async _init() {
-    const found = await Promise.all(ACTIONS.map((a) => probeVideo(a.video)));
+    const [introOk, ...found] = await Promise.all([INTRO_VIDEO, ...ACTIONS.map((a) => a.video)].map(probeVideo));
+    INTRO_OK = introOk;
     ACTIVE = ACTIONS.filter((_, i) => found[i]);
+    if (!INTRO_OK) $('introSound')?.remove();
     if (!ACTIVE.length) {
       $('status').textContent = 'AGREGA LOS VIDEOS EN LA CARPETA assets/video/ (caminando.mp4, saltando.mp4, girando.mp4…).';
       $('start').disabled = true;
@@ -516,6 +554,12 @@ class App {
   }
 
   _bind() {
+    $('introSound').onclick = () => {
+      const on = this.scene.toggleIntroSound();
+      $('introSound').setAttribute('aria-pressed', String(on));
+      $('introSound').setAttribute('aria-label', on ? 'Silenciar el video' : 'Activar sonido del video');
+      $('introSoundLabel').textContent = on ? 'SONIDO ACTIVADO' : 'ACTIVAR SONIDO';
+    };
     $('start').onclick      = () => this.lesson.goTo(0);
     $('prev').onclick       = () => { if (this.state.mode === 'lesson') this.lesson.prev(); };
     $('next').onclick       = () => {

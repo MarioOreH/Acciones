@@ -60,7 +60,14 @@
         <!-- Videos con transición suave (se crean desde JS) -->
         <div id="slides" class="slides" role="img" aria-label="Video de la acción"></div>
 
-        <!-- Juego: tarjetas con fotos -->
+        <!-- Sonido del video de presentación (solo en la pantalla de inicio) -->
+        <button id="introSound" class="intro-sound" type="button" aria-pressed="false" aria-label="Activar sonido del video">
+          <svg class="ico ico-on"  aria-hidden="true"><use href="#i-speaker"/></svg>
+          <svg class="ico ico-off" aria-hidden="true"><use href="#i-speaker-off"/></svg>
+          <span id="introSoundLabel">ACTIVAR SONIDO</span>
+        </button>
+
+        <!-- Juego: tarjetas de video -->
         <div id="gameGrid" class="game-grid" role="group" aria-label="Videos de acciones; toca el correcto" hidden></div>
 
         <!-- Celebración -->
